@@ -37,6 +37,13 @@ const formSchema = z.object({
   }),
 });
 
+const apiSchema = z.object({
+  tastePreference: z.string(),
+  recentMeals: z.array(z.string()),
+  restaurantRatings: z.string(),
+  userLocation: z.string(),
+});
+
 interface LunchFormProps {
   onNewRecommendation: (recommendation: RecommendLunchOutput) => void;
   isProcessing: boolean;
@@ -56,9 +63,23 @@ export function LunchForm({ onNewRecommendation, isProcessing, setIsProcessing }
     },
   });
 
+  const parseRecentMeals = (mealsString: string): string[] => {
+    return mealsString
+      .split(',')
+      .map(meal => meal.trim())
+      .filter(meal => meal.length > 0);
+  };
+
+  const stringifyRecentMeals = (mealsArray: string[]): string => {
+    return mealsArray.join(', ');
+  };
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsProcessing(true);
-    const { data, error } = await getLunchRecommendation(values);
+    const apiData: z.infer<typeof apiSchema> = {
+      ...values,
+      recentMeals: parseRecentMeals(values.recentMeals)
+    };
+    const { data, error } = await getLunchRecommendation(apiData);
     if (error) {
       toast({
         variant: "destructive",
@@ -67,8 +88,10 @@ export function LunchForm({ onNewRecommendation, isProcessing, setIsProcessing }
       });
     } else if (data) {
       onNewRecommendation(data);
+      const currentMeals = parseRecentMeals(values.recentMeals);
+      const updatedMeals = [...currentMeals, data.menuItem];
       // Cleverly add the new recommendation to the history for the next search
-      form.setValue("recentMeals", values.recentMeals + ", " + data.menuItem);
+      form.setValue("recentMeals", stringifyRecentMeals(updatedMeals) );
       form.setValue("tastePreference", "");
     }
     setIsProcessing(false);
